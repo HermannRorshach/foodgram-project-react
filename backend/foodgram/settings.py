@@ -113,3 +113,31 @@ MIN_COOKING_TIME = 1
 MAX_COOKING_TIME = 5000
 MIN_INGREDIENTS_COUNT = 1
 MAX_INGREDIENTS_COUNT = 10_000
+COUNT_RECIPES_ON_HOME_PAGE = 6
+
+# permissions
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+    ],
+
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'api.pagination.CustomPaginator',
+    'PAGE_SIZE': COUNT_RECIPES_ON_HOME_PAGE,
+}
+
+DJOSER = {
+    'LOGIN_FIELD': 'email',
+    'HIDE_USERS': False,
+    'PERMISSIONS': {
+        'user': ('api.permissions.IsAuthorOrReadOnly',),
+        'user_list': ('rest_framework.permissions.AllowAny',),
+    },
+    'SERIALIZERS': {
+        'current_user': 'api.serializers.CustomUserSerializer',
+        'user': 'api.serializers.CustomUserSerializer',
+        'user_create': 'api.serializers.CustomUserCreateSerializer',
+    },
+}
