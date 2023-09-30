@@ -1,6 +1,6 @@
 # Проект Фудграм
 
-> Домен: localhost
+> Домен: https://profood.webhop.me/signin
 >
 > Логин: admin
 >
