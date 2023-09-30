@@ -4,8 +4,6 @@ venv
 .idea
 .vscode
 .env
-!**migrations/__init__.py
-**/migrations/*
 **/__pycache__/
 /__pycache__/
 static/

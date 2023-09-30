@@ -1,8 +1,10 @@
+import re
+
 from django.conf import settings
-from django.core.exceptions import ValidationError
 from django.core.validators import (
     MaxValueValidator,
-    MinValueValidator
+    MinValueValidator,
+    RegexValidator
 )
 from django.db import models
 
@@ -19,6 +21,11 @@ class Tag(models.Model):
         'Цвет в hex-код',
         unique=True,
         max_length=settings.HEX_COLOR_LENGTH,
+        validators=[RegexValidator(
+            regex='^#(?:[A-Fa-f0-9]{3}){1,2}$',
+            message='Укажите цвет в формате HEX-код',
+            flags=re.IGNORECASE
+        )],
         help_text='HEX-код в формате #FFF или #D7ABC9'
     )
     slug = models.SlugField(
@@ -27,30 +34,10 @@ class Tag(models.Model):
         max_length=settings.FIELD_DATA_MAX_LENGTH
     )
 
-    def clean(self):
-        if Tag.objects.filter(name__iexact=self.name.lower()
-                              ).exclude(pk=self.pk).exists():
-            raise ValidationError('Тег с таким названием уже существует!')
-
-        if Tag.objects.filter(color__iexact=self.color.lower()
-                              ).exclude(pk=self.pk).exists():
-            raise ValidationError('Тег с таким HEX-кодом уже существует!')
-
-        if Tag.objects.filter(slug__iexact=self.slug.lower()
-                              ).exclude(pk=self.pk).exists():
-            raise ValidationError('Тег с таким SLUG уже существует!')
-
-    def save(self, *args, **kwargs):
-        self.color = self.color.lower()
-        super().save(*args, **kwargs)
-
     class Meta:
         verbose_name = 'Тег'
         verbose_name_plural = 'Теги'
-        constraints = [models.UniqueConstraint(
-            fields=['name', 'color'],
-            name='unique_name_color'
-        )]
+        ordering = ('name',)
 
     def __str__(self):
         return self.name[:settings.TRUNCATE_CHARS_LENGTH]
@@ -69,6 +56,7 @@ class Ingredient(models.Model):
     class Meta:
         verbose_name = 'Ингредиент'
         verbose_name_plural = 'Ингредиенты'
+        ordering = ('name',)
         constraints = [models.UniqueConstraint(
             fields=('name', 'measurement_unit'),
             name='unique_ingredient'
@@ -164,6 +152,7 @@ class IngredientInRecipe(models.Model):
     class Meta:
         verbose_name = 'Ингредиент рецепта'
         verbose_name_plural = 'Ингредиенты рецепта'
+        ordering = ('recipe',)
         constraints = [models.UniqueConstraint(
             fields=('recipe', 'ingredient'),
             name='unique_ingredient_in_recipe'

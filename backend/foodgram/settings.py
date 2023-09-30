@@ -17,6 +17,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    'rest_framework',
+    'rest_framework.authtoken',
+    'django_filters',
+    'djoser',
+
     'recipes.apps.RecipesConfig',
     'users.apps.UsersConfig',
     'api.apps.ApiConfig',
@@ -52,25 +57,16 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'foodgram.wsgi.application'
 
-# dev-mode
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': config('DB_ENGINE', default='django.db.backends.postgresql', cast=str),
+        'NAME': config('DB_NAME', default='postgres', cast=str),
+        'USER': config('POSTGRES_USER', default='postgres', cast=str),
+        'PASSWORD': config('POSTGRES_PASSWORD', default='1234', cast=str),
+        'HOST': config('DB_HOST', default='db', cast=str),
+        'PORT': config('DB_PORT', default='5432', cast=int)
     }
 }
-
-# deploy
-# DATABASES = {
-#     'default': {
-#         'ENGINE': config('DB_ENGINE', default='django.db.backends.postgresql', cast=str),
-#         'NAME': config('DB_NAME', default='postgres', cast=str),
-#         'USER': config('POSTGRES_USER', default='postgres', cast=str),
-#         'PASSWORD': config('POSTGRES_PASSWORD', default='1234', cast=str),
-#         'HOST': config('DB_HOST', default='db', cast=str),
-#         'PORT': config('DB_PORT', default='5432', cast=int)
-#     }
-# }
 
 AUTH_PASSWORD_VALIDATORS = [
     {

@@ -3,7 +3,9 @@ from rest_framework.mixins import (ListModelMixin,
 from rest_framework.viewsets import GenericViewSet
 
 
-class CustomViewMixin(ListModelMixin,
-                      RetrieveModelMixin,
-                      GenericViewSet):
+class CreateListRetrieveMixin(ListModelMixin,
+                              RetrieveModelMixin,
+                              GenericViewSet):
+    """Набор представлений, предоставляющий действия
+    «получить», «создать» и «список»."""
     pass

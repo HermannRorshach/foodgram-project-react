@@ -1,6 +1,6 @@
 from django.db.models import Sum
 from django_filters.rest_framework import DjangoFilterBackend
-from django.http import HttpResponse
+from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from djoser.views import UserViewSet
 
@@ -15,7 +15,7 @@ from rest_framework.status import (
 from rest_framework.viewsets import ModelViewSet
 
 from api.filters import IngredientFilter, RecipeFilter
-from api.mixins import CustomViewMixin
+from api.mixins import CreateListRetrieveMixin
 from api.pagination import CustomPaginator
 from api.permissions import IsAuthorOrStaffOrReadOnly
 from api.serializers import (
@@ -39,14 +39,14 @@ from recipes.models import (
 from users.models import Subscription, User
 
 
-class TagViewSet(CustomViewMixin):
+class TagViewSet(CreateListRetrieveMixin):
     serializer_class = TagSerializer
     queryset = Tag.objects.all()
     permission_classes = (IsAuthorOrStaffOrReadOnly,)
     pagination_class = None
 
 
-class IngredientViewSet(CustomViewMixin):
+class IngredientViewSet(CreateListRetrieveMixin):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
     permission_classes = (IsAuthorOrStaffOrReadOnly,)
@@ -99,15 +99,15 @@ class CustomUserViewSet(UserViewSet):
 
 
 class RecipeViewSet(ModelViewSet):
-    queryset = Recipe.objects.all()
+    queryset = (
+        Recipe.objects.select_related('author')
+        .prefetch_related('ingredients', 'tags').all()
+    )
     permission_classes = (IsAuthorOrStaffOrReadOnly,)
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
     pagination_class = CustomPaginator
     http_method_names = ['get', 'post', 'patch', 'delete']
-
-    def perform_create(self, serializer):
-        return serializer.save(author=self.request.user)
 
     def perform_update(self, serializer):
         return serializer.save(author=self.request.user)
@@ -115,7 +115,8 @@ class RecipeViewSet(ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
+        serializer.validated_data['author'] = self.request.user
+        serializer.save()
         serializer = CreateRecipeSerializer(
             instance=serializer.instance,
             context={'request': self.request}
@@ -138,12 +139,7 @@ class RecipeViewSet(ModelViewSet):
 
     @shopping_cart.mapping.delete
     def destroy_shopping_cart(self, request, pk):
-        get_object_or_404(
-            ShoppingCart,
-            recipe__id=pk,
-            user=request.user
-        ).delete()
-        return Response(status=HTTP_204_NO_CONTENT)
+        return self._del_recipe(request, pk, ShoppingCart)
 
     @action(detail=True, methods=['POST'])
     def favorite(self, request, pk):
@@ -151,15 +147,20 @@ class RecipeViewSet(ModelViewSet):
 
     @favorite.mapping.delete
     def destroy_favorite(self, request, pk):
-        get_object_or_404(
-            Favorite,
-            recipe=get_object_or_404(Recipe, id=pk),
-            user=request.user
-        ).delete()
-        return Response(status=HTTP_204_NO_CONTENT)
+        return self._del_recipe(request, pk, Favorite)
 
     @action(detail=False, methods=['GET'])
     def download_shopping_cart(self, request):
+        filename = 'shop_list.txt'
+        context, headers = self._make_file(request, filename)
+
+        with open(filename, 'w', encoding='UTF-8') as file:
+            file.write(context)
+
+        return FileResponse(open(filename, 'rb'), headers=headers)
+
+    @staticmethod
+    def _make_file(request, file_name):
         ingredients = IngredientInRecipe.objects.filter(
             recipe__shopping_carts__user=request.user
         ).values(
@@ -176,16 +177,13 @@ class RecipeViewSet(ModelViewSet):
             shop_list += f'{name} {measurement_unit} - {amount}\n'
 
         headers = {
-            'Content-Disposition': 'attachment; filename=shop_list.txt'
+            'Content-Disposition': f'attachment; filename={file_name}'
         }
 
-        return HttpResponse(
-            shop_list,
-            content_type='text/plain; charset=UTF-8',
-            headers=headers
-        )
+        return shop_list, headers
 
-    def _add_recipe(self, request, pk, serializer_class):
+    @staticmethod
+    def _add_recipe(request, pk, serializer_class):
         recipe = get_object_or_404(Recipe, id=pk)
         data = {'recipe': recipe.id, 'user': request.user.id}
         serializer = serializer_class(data=data, context={'request': request})
@@ -193,3 +191,12 @@ class RecipeViewSet(ModelViewSet):
         serializer.save()
 
         return Response(serializer.data, status=HTTP_201_CREATED)
+
+    @staticmethod
+    def _del_recipe(request, pk, serializer_class):
+        get_object_or_404(
+            serializer_class,
+            recipe__id=pk,
+            user=request.user
+        ).delete()
+        return Response(status=HTTP_204_NO_CONTENT)
