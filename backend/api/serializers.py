@@ -51,10 +51,8 @@ class CustomUserSerializer(ModelSerializer):
 
     def get_is_subscribed(self, obj):
         user = self.context.get('request').user
-        return (
-                user.is_authenticated
-                and user.following.all().filter(author=obj.id).exists()
-        )
+        return (user.is_authenticated
+                and user.following.all().filter(author=obj.id).exists())
 
 
 class TagSerializer(ModelSerializer):
