@@ -8,6 +8,7 @@ from recipes.models import (
     ShoppingCart,
     Tag
 )
+from recipes.validators import IngredientInRecipeFormSetValidator
 
 
 @admin.register(Tag)
@@ -29,6 +30,7 @@ class IngredientInRecipeAdmin(admin.TabularInline):
     extra = 0
     min_num = 1
     validate_min = True
+    formset = IngredientInRecipeFormSetValidator
 
 
 @admin.register(Recipe)

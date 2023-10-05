@@ -6,7 +6,8 @@ from djoser.views import UserViewSet
 
 from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import (IsAuthenticated,
+                                        IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
 from rest_framework.status import (
     HTTP_201_CREATED,
@@ -15,15 +16,15 @@ from rest_framework.status import (
 from rest_framework.viewsets import ModelViewSet
 
 from api.filters import IngredientFilter, RecipeFilter
-from api.mixins import CreateListRetrieveMixin
+from api.mixins import ListRetrieveMixin
 from api.pagination import CustomPaginator
-from api.permissions import IsAuthorOrStaffOrReadOnly
 from api.serializers import (
     CreateRecipeSerializer,
     CustomUserSerializer,
     FavoriteSerializer,
     IngredientSerializer,
     ShoppingCartSerializer,
+    SubscriptionCreateSerializer,
     SubscriptionSerializer,
     RecipeListSerializer,
     TagSerializer
@@ -39,17 +40,17 @@ from recipes.models import (
 from users.models import Subscription, User
 
 
-class TagViewSet(CreateListRetrieveMixin):
+class TagViewSet(ListRetrieveMixin):
     serializer_class = TagSerializer
     queryset = Tag.objects.all()
-    permission_classes = (IsAuthorOrStaffOrReadOnly,)
+    permission_classes = (IsAuthenticatedOrReadOnly,)
     pagination_class = None
 
 
-class IngredientViewSet(CreateListRetrieveMixin):
+class IngredientViewSet(ListRetrieveMixin):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
-    permission_classes = (IsAuthorOrStaffOrReadOnly,)
+    permission_classes = (IsAuthenticatedOrReadOnly,)
     filter_backends = (DjangoFilterBackend, SearchFilter)
     filterset_class = IngredientFilter
     pagination_class = None
@@ -68,28 +69,25 @@ class CustomUserViewSet(UserViewSet):
         author = get_object_or_404(User, id=id)
 
         if request.method == 'POST':
-            follower = Subscription.objects.create(
-                user=user,
-                author=author
-            )
-            serializer = SubscriptionSerializer(
-                follower,
+            serializer = SubscriptionCreateSerializer(
+                data={'user': user.id, 'author': author.id},
                 context={'request': request}
             )
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
             return Response(serializer.data, status=HTTP_201_CREATED)
 
-        follower = get_object_or_404(
+        get_object_or_404(
             Subscription,
-            user=user,
-            author=author
-        )
-        follower.delete()
+            user=request.user,
+            author=get_object_or_404(User, id=id)
+        ).delete()
         return Response(status=HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=['GET'])
     def subscriptions(self, request):
-        query = Subscription.objects.filter(user=request.user)
-        page = self.paginate_queryset(query)
+        queryset = User.objects.filter(following__user=request.user)
+        page = self.paginate_queryset(queryset)
         serializer = SubscriptionSerializer(
             page,
             many=True,
@@ -103,7 +101,7 @@ class RecipeViewSet(ModelViewSet):
         Recipe.objects.select_related('author')
         .prefetch_related('ingredients', 'tags').all()
     )
-    permission_classes = (IsAuthorOrStaffOrReadOnly,)
+    permission_classes = (IsAuthenticatedOrReadOnly,)
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
     pagination_class = CustomPaginator
@@ -166,15 +164,28 @@ class RecipeViewSet(ModelViewSet):
         ).values(
             'ingredient__name',
             'ingredient__measurement_unit'
-        ).annotate(amount=Sum('amount'))
+        ).annotate(total_amount=Sum('amount')).order_by('ingredient__name')
 
         shop_list = ''
+        curr_ingredient = None
+        total_amount = 0
+
         for ingredient in ingredients:
             name = ingredient.get('ingredient__name')
             measurement_unit = ingredient.get('ingredient__measurement_unit')
-            amount = ingredient.get('amount')
+            ingredient_amount = ingredient.get('total_amount')
 
-            shop_list += f'{name} {measurement_unit} - {amount}\n'
+            if curr_ingredient and curr_ingredient != name:
+                shop_list += (f'{curr_ingredient} {measurement_unit} - '
+                              f'{total_amount}\n')
+                total_amount = 0
+
+            curr_ingredient = name
+            total_amount += ingredient_amount
+
+        if curr_ingredient:
+            shop_list += (f'{curr_ingredient} {measurement_unit} - '
+                          f'{total_amount}\n')
 
         headers = {
             'Content-Disposition': f'attachment; filename={file_name}'
