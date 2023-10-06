@@ -47,7 +47,7 @@ class CustomUserSerializer(ModelSerializer):
         user = self.context.get('request').user
         return (
             user.is_authenticated
-            and user.following.all().filter(author=obj.id).exists()
+            and user.follower.all().filter(author=obj.id).exists()
         )
 
 

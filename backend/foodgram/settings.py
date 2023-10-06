@@ -138,3 +138,9 @@ DJOSER = {
         'user': 'api.serializers.CustomUserSerializer',
     },
 }
+
+# Код для локальной разработки
+try:
+    from .local_settings import *
+except ModuleNotFoundError as e:
+    pass
