@@ -6,6 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 config = AutoConfig(search_path=BASE_DIR)
 
 SECRET_KEY = config('SECRET_KEY', default='test_1234', cast=str)
+
 DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*', cast=Csv())
 
@@ -22,8 +23,8 @@ INSTALLED_APPS = [
     'django_filters',
     'djoser',
 
-    'recipes.apps.RecipesConfig',
     'users.apps.UsersConfig',
+    'recipes.apps.RecipesConfig',
     'api.apps.ApiConfig',
 ]
 
@@ -56,13 +57,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'foodgram.wsgi.application'
-
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
 
 DATABASES = {
     'default': {
@@ -107,7 +101,7 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-AUTHENTICATION_BACKENDS = ['users.models.EmailBackend']
+AUTH_USER_MODEL = 'users.User'
 
 # constants
 HEX_COLOR_LENGTH = 7
@@ -142,6 +136,5 @@ DJOSER = {
     'SERIALIZERS': {
         'current_user': 'api.serializers.CustomUserSerializer',
         'user': 'api.serializers.CustomUserSerializer',
-        'user_create': 'api.serializers.CustomUserSerializer',
     },
 }

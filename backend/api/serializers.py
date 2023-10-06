@@ -43,12 +43,6 @@ class CustomUserSerializer(ModelSerializer):
         )
         extra_kwargs = {'password': {'write_only': True}}
 
-    def create(self, validated_data):
-        user = User.objects.create_user(**validated_data)
-        user.set_password(validated_data.get('password'))
-        user.save()
-        return user
-
     def get_is_subscribed(self, obj):
         user = self.context.get('request').user
         return (

@@ -1,9 +1,41 @@
-from django.contrib.auth import get_user_model
-from django.contrib.auth.backends import ModelBackend
+from django.conf import settings
+from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.core.exceptions import ValidationError
 from django.db import models
 
-User = get_user_model()
+
+class User(AbstractUser):
+    email = models.EmailField(
+        'E-mail',
+        max_length=settings.FIELD_DATA_MAX_LENGTH,
+        unique=True
+    )
+    username = models.CharField(
+        'Имя пользователя',
+        max_length=settings.FIELD_DATA_MAX_LENGTH,
+        unique=True,
+        validators=(UnicodeUsernameValidator(),)
+    )
+    first_name = models.CharField(
+        'Имя',
+        max_length=settings.FIELD_DATA_MAX_LENGTH
+    )
+    last_name = models.CharField(
+        'Фамилия',
+        max_length=settings.FIELD_DATA_MAX_LENGTH
+    )
+
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ('username', 'first_name', 'last_name')
+
+    class Meta:
+        verbose_name = 'Пользователь'
+        verbose_name_plural = 'Пользователи'
+        ordering = ('username',)
+
+    def __str__(self):
+        return str(self.username)
 
 
 class Subscription(models.Model):
@@ -34,15 +66,3 @@ class Subscription(models.Model):
 
     def __str__(self):
         return f'{self.user} подписался на {self.author}'
-
-
-class EmailBackend(ModelBackend):
-    def authenticate(self, request, username=None, password=None, **kwargs):
-        try:
-            user = User.objects.get(email=username)
-        except User.DoesNotExist:
-            return None
-        else:
-            if user.check_password(password):
-                return user
-        return None
